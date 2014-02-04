@@ -50,7 +50,7 @@ function setTimer() {
 function queueMessage(parsedMessage) {
   parsedMessage.date = parsedMessage.time; // because lol glossy
 
-  parsedMessage.ts = parsedMessage.date.getTime()
+  parsedMessage.ts = parsedMessage.date.getTime() * 1000 + parsedMessage.time.__micros
   parsedMessage.ingestTs = new Date().getTime()
 
   var insertedAt = -1;
