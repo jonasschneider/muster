@@ -5,8 +5,18 @@ var OctetSyslogParser = require('./octet_syslog_parser')
 
 var queued = [];
 
+
+var lastSentTs = 0;
+
 function send(msg) {
   console.log(glossy.produce(msg));
+
+  var ts = msg.date.getTime() * 1000 + msg.time.__micros;
+  if(ts < lastSentTs) {
+    console.error("grump. i just sent a misordered thing.", ts, lastSentTs)
+    process.exit(1);
+  }
+  lastSentTs = ts;
 }
 
 const bufferFor = 1000;
@@ -30,7 +40,9 @@ function flush() {
   queued = timeOrderedQueue.reverse()
 
   clearTimer();
-  setTimer();
+
+  if(queued.length > 0)
+    setTimer();
 }
 
 
@@ -68,7 +80,7 @@ function queueMessage(parsedMessage) {
   }
 
   if(insertedAt > 0) {
-    console.log("reordered", parsedMessage.message)
+    console.log("reordered", require('util').inspect(parsedMessage.message))
   }
 
   setTimer();
