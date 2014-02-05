@@ -103,15 +103,15 @@ var server = net.createServer(function (socket) {
   });
 })
 
-if(process.argv.length != 3) {
-  console.log("usage: node bla.js <listningport>")
+if(process.argv.length != 5) {
+  console.log("usage: node bla.js <listen_port> <target_host> <target_port>")
   process.exit(1);
 }
 
 var port = parseInt(process.argv[2]);
 const bufferFor = 30000; // 30 secs
 
-var logClient = require('tls').connect(32440, "logs.papertrailapp.com", { rejectUnauthorized: false}, function() {
+var logClient = require('tls').connect(parseInt(process.argv[4]), process.argv[3], { rejectUnauthorized: false}, function() {
   server.listen(port, "0.0.0.0");
   console.log("listening on",port)
 });
