@@ -20,7 +20,7 @@ module.exports = function OctetSyslogParser(onPacket) {
       if(frameEnd < buf.length + 1) { // we never access the 1 byte that's too much, since...
         var packet = buf.slice(spaceIdx+1, frameEnd) // .. the byte count is exclusive
         //console.log("get",packet)
-        //console.dir(packet.toString())
+        console.dir(packet.toString())
         onPacket(parseSyslog(packet));
 
         buf = buf.slice(frameEnd, buf.length)

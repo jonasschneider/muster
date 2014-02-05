@@ -1,29 +1,31 @@
-var syslogProducer = require('glossy').Produce; // or wherever glossy lives
-var glossy = new syslogProducer();
-
+var syslog_producer = new (require('glossy').Produce)();
 var OctetSyslogParser = require('./octet_syslog_parser')
 
 var queued = [];
 
-
 var lastSentTs = 0;
-
 function send(msg) {
-  console.log(glossy.produce(msg));
+  var x = syslog_producer.produce({
+    facility: msg.facility,
+    severity: msg.severity,
+    //host: msg.host,
+    host: "<snip>",
+    appName: msg.appName,
+    pid: msg.pid,
+    date: msg.date,
+    message: msg.message
+  });
 
-  var ts = msg.date.getTime() * 1000 + msg.time.__micros;
-  if(ts < lastSentTs) {
-    console.error("grump. i just sent a misordered thing.", ts, lastSentTs)
-    process.exit(1);
+  logClient.write(''+x.length+' '+x)
+
+  // check what we actually set out to correct
+  if(msg.ts < lastSentTs) {
+    console.error("grump. i just sent a misordered thing.", ts, lastSentTs, msg)
   }
   lastSentTs = ts;
 }
 
-const bufferFor = 1000;
-
 function flush() {
-  var next;
-
   var now = new Date().getTime();
   var sendUpto = -1;
   var timeOrderedQueue = queued.reverse();
@@ -41,27 +43,28 @@ function flush() {
 
   clearTimer();
 
+  console.log(queued.length, "messages still queued")
+
   if(queued.length > 0)
-    setTimer();
+    setTimer(1000);
 }
 
-
-var flushTimeout;
+var flushTimer;
 
 function clearTimer() {
-  if(flushTimeout) {
-    clearTimeout(flushTimeout);
-    flushTimeout = null;
+  if(flushTimer) {
+    clearTimeout(flushTimer);
+    flushTimer = null;
   }
 }
 
-function setTimer() {
-  if(!flushTimeout) flushTimeout = setTimeout(flush, bufferFor);
+function setTimer(time) {
+  time = time || bufferFor
+  if(!flushTimer) flushTimer = setTimeout(flush, time);
 }
 
 function queueMessage(parsedMessage) {
   parsedMessage.date = parsedMessage.time; // because lol glossy
-
   parsedMessage.ts = parsedMessage.date.getTime() * 1000 + parsedMessage.time.__micros
   parsedMessage.ingestTs = new Date().getTime()
 
@@ -86,10 +89,8 @@ function queueMessage(parsedMessage) {
   setTimer();
 }
 
-var p2 = new OctetSyslogParser(queueMessage);
-p2.feed(new Buffer(require('fs').readFileSync('./dump', "utf8")));
-
 var net = require('net');
+
 var server = net.createServer(function (socket) {
   var p = new OctetSyslogParser(queueMessage);
 
@@ -103,10 +104,14 @@ var server = net.createServer(function (socket) {
 })
 
 if(process.argv.length != 3) {
-  console.log("usage: node bla.js <port>")
+  console.log("usage: node bla.js <listningport>")
   process.exit(1);
 }
 
 var port = parseInt(process.argv[2]);
-server.listen(port, "0.0.0.0");
-console.log("listening on",port)
+const bufferFor = 30000; // 30 secs
+
+var logClient = require('tls').connect(32440, "logs.papertrailapp.com", { rejectUnauthorized: false}, function() {
+  server.listen(port, "0.0.0.0");
+  console.log("listening on",port)
+});
